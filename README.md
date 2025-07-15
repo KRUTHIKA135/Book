@@ -516,3 +516,228 @@ function App() {
 
 export default App;
 
+
+
+
+
+app.js
+import { useState } from 'react';
+import CustomerForm from './components/CustomerForm';
+import CustomerList from './components/CustomerList';
+import './App.css';
+
+function App() {
+  const [refresh, setRefresh] = useState(false);
+  const triggerRefresh = () => setRefresh(!refresh);
+
+  return (
+    <div className="app-container">
+      <div className="content-wrapper">
+        <h1 className="main-title">Bookstore Customer Management</h1>
+        <CustomerForm refresh={triggerRefresh} />
+        <hr className="divider" />
+        <CustomerList refreshSignal={refresh} />
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+app.css
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: url('/background.jpg') no-repeat center center fixed;
+  background-size: cover;
+}
+
+.app-container {
+  background-color: rgba(255, 255, 255, 0.9);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.content-wrapper {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  background: #ffffff;
+}
+
+.main-title {
+  text-align: center;
+  color: #2c3e50;
+  font-size: 32px;
+  margin-bottom: 30px;
+}
+
+.divider {
+  margin: 40px 0;
+  border: none;
+  border-top: 2px solid #ccc;
+}
+
+
+custormerform.js
+import { useState } from 'react';
+import axios from 'axios';
+import './CustomerForm.css';
+
+export default function CustomerForm({ refresh }) {
+  const [form, setForm] = useState({
+    fullName: '', email: '', mobileNumber: '', password: '',
+    gender: '', dob: '', address: '', city: '', pincode: ''
+  });
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async () => {
+    await axios.post('http://localhost:5000/api/customers', form);
+    alert('Customer Added');
+    setForm({ fullName: '', email: '', mobileNumber: '', password: '', gender: '', dob: '', address: '', city: '', pincode: '' });
+    refresh();
+  };
+
+  return (
+    <div className="form-card">
+      <h2>Register Customer</h2>
+      <div className="form-grid">
+        <input name="fullName" value={form.fullName} onChange={handleChange} placeholder="Full Name" />
+        <input name="email" value={form.email} onChange={handleChange} placeholder="Email" />
+        <input name="mobileNumber" value={form.mobileNumber} onChange={handleChange} placeholder="Mobile Number" />
+        <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Password" />
+        <select name="gender" value={form.gender} onChange={handleChange}>
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+        <input name="dob" type="date" value={form.dob} onChange={handleChange} />
+        <textarea name="address" value={form.address} onChange={handleChange} placeholder="Address"></textarea>
+        <input name="city" value={form.city} onChange={handleChange} placeholder="City" />
+        <input name="pincode" value={form.pincode} onChange={handleChange} placeholder="Pincode" />
+      </div>
+      <button className="submit-btn" onClick={handleSubmit}>Submit</button>
+    </div>
+  );
+}
+
+
+Customer form.css
+
+.form-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: #f9f9f9;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.submit-btn {
+  margin-top: 20px;
+  padding: 12px 20px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.submit-btn:hover {
+  background-color: #2980b9;
+}
+
+
+customerlist.css
+.customer-list {
+  background: #f0f4f8;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.customer-card {
+  background: #fff;
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.customer-card p {
+  margin: 4px 0;
+}
+
+.delete-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.delete-btn:hover {
+  background: #c0392b;
+}
+
+
+customerlist.js
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import './CustomerList.css';
+
+export default function CustomerList({ refreshSignal }) {
+  const [customers, setCustomers] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/customers').then(res => setCustomers(res.data));
+  }, [refreshSignal]);
+
+  const deleteCustomer = async (id) => {
+    await axios.delete(`http://localhost:5000/api/customers/${id}`);
+    alert('Deleted');
+  };
+
+  return (
+    <div className="customer-list">
+      <h2>All Customers</h2>
+      {customers.map(c => (
+        <div key={c.customerId} className="customer-card">
+          <p><strong>ID:</strong> {c.customerId}</p>
+          <p><strong>Name:</strong> {c.fullName}</p>
+          <p><strong>Email:</strong> {c.email}</p>
+          <p><strong>Mobile:</strong> {c.mobileNumber}</p>
+          <p><strong>Gender:</strong> {c.gender}</p>
+          <p><strong>DOB:</strong> {c.dob}</p>
+          <p><strong>Address:</strong> {c.address}, {c.city} - {c.pincode}</p>
+          <p><strong>Registered On:</strong> {new Date(c.registerOn).toLocaleDateString()}</p>
+          <button className="delete-btn" onClick={() => deleteCustomer(c.customerId)}>Delete</button>
+        </div>
+      ))}
+    </div>
+  );
+}
