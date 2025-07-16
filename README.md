@@ -741,3 +741,135 @@ export default function CustomerList({ refreshSignal }) {
     </div>
   );
 }
+
+
+
+updated models/Customer.js 
+const mongoose = require('mongoose');
+
+const addressSchema = new mongoose.Schema({
+  address: String,
+  city: String,
+  pincode: String,
+  country: String
+}, { _id: false });
+
+const customerSchema = new mongoose.Schema({
+  customerId: Number,
+  fullName: String,
+  email: String,
+  mobileNumber: String,
+  password: String,
+  gender: String,
+  dob: String,
+  address: addressSchema, // now embedded object
+  registerOn: { type: Date, default: Date.now }
+});
+
+module.exports = mongoose.model('Customer', customerSchema);
+
+
+updated customerform.js
+import { useState } from 'react';
+import axios from 'axios';
+import './CustomerForm.css';
+
+export default function CustomerForm({ refresh }) {
+  const [form, setForm] = useState({
+    fullName: '', email: '', mobileNumber: '', password: '',
+    gender: '', dob: '',
+    address: {
+      address: '', city: '', pincode: '', country: ''
+    }
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name.startsWith('address.')) {
+      const key = name.split('.')[1];
+      setForm(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [key]: value
+        }
+      }));
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
+
+  const handleSubmit = async () => {
+    await axios.post('http://localhost:5000/api/customers', form);
+    alert('Customer Added');
+    setForm({
+      fullName: '', email: '', mobileNumber: '', password: '',
+      gender: '', dob: '',
+      address: { address: '', city: '', pincode: '', country: '' }
+    });
+    refresh();
+  };
+
+  return (
+    <div className="form-card">
+      <h2>Register Customer</h2>
+      <div className="form-grid">
+        <input name="fullName" value={form.fullName} onChange={handleChange} placeholder="Full Name" />
+        <input name="email" value={form.email} onChange={handleChange} placeholder="Email" />
+        <input name="mobileNumber" value={form.mobileNumber} onChange={handleChange} placeholder="Mobile Number" />
+        <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Password" />
+        <select name="gender" value={form.gender} onChange={handleChange}>
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+        <input name="dob" type="date" value={form.dob} onChange={handleChange} />
+
+        <textarea name="address.address" value={form.address.address} onChange={handleChange} placeholder="Address" />
+        <input name="address.city" value={form.address.city} onChange={handleChange} placeholder="City" />
+        <input name="address.pincode" value={form.address.pincode} onChange={handleChange} placeholder="Pincode" />
+        <input name="address.country" value={form.address.country} onChange={handleChange} placeholder="Country" />
+      </div>
+      <button className="submit-btn" onClick={handleSubmit}>Submit</button>
+    </div>
+  );
+}
+
+
+updated customerlist.js
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import './CustomerList.css';
+
+export default function CustomerList({ refreshSignal }) {
+  const [customers, setCustomers] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/customers').then(res => setCustomers(res.data));
+  }, [refreshSignal]);
+
+  const deleteCustomer = async (id) => {
+    await axios.delete(`http://localhost:5000/api/customers/${id}`);
+    alert('Deleted');
+  };
+
+  return (
+    <div className="customer-list">
+      <h2>All Customers</h2>
+      {customers.map(c => (
+        <div key={c.customerId} className="customer-card">
+          <p><strong>ID:</strong> {c.customerId}</p>
+          <p><strong>Name:</strong> {c.fullName}</p>
+          <p><strong>Email:</strong> {c.email}</p>
+          <p><strong>Mobile:</strong> {c.mobileNumber}</p>
+          <p><strong>Gender:</strong> {c.gender}</p>
+          <p><strong>DOB:</strong> {c.dob}</p>
+          <p><strong>Address:</strong> {c.address?.address}, {c.address?.city}, {c.address?.country} - {c.address?.pincode}</p>
+          <p><strong>Registered On:</strong> {new Date(c.registerOn).toLocaleDateString()}</p>
+          <button className="delete-btn" onClick={() => deleteCustomer(c.customerId)}>Delete</button>
+        </div>
+      ))}
+    </div>
+  );
+}
