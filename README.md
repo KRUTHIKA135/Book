@@ -1,3 +1,105 @@
+jwt-demo/
+├── server.js
+├── jwtUtils.js
+├── authMiddleware.js
+├── routes/
+│   ├── auth.js
+│   └── profile.js
+├── package.json   <-- after npm init
+
+jwtUtils.js
+
+const jwt = require("jsonwebtoken");
+
+const SECRET_KEY = "mySuperSecretKey"; // use .env in real apps
+
+function createToken(payload, expiry = "1h") {
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: expiry });
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, SECRET_KEY);
+  } catch (error) {
+    return null;
+  }
+}
+
+module.exports = { createToken, verifyToken };
+
+authMiddleware.js 
+const { verifyToken } = require("./jwtUtils");
+
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Token missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  const user = verifyToken(token);
+
+  if (!user) return res.status(403).json({ message: "Invalid or expired token" });
+
+  req.user = user;
+  next();
+}
+
+module.exports = authenticate;
+
+routes/auth.js
+const express = require("express");
+const router = express.Router();
+const { createToken } = require("../jwtUtils");
+
+router.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // Dummy check
+  if (username === "admin" && password === "1234") {
+    const token = createToken({ username, role: "admin" });
+    res.json({ message: "Login successful", token });
+  } else {
+    res.status(401).json({ message: "Invalid credentials" });
+  }
+});
+
+module.exports = router;
+
+
+routes/profile.js
+const express = require("express");
+const router = express.Router();
+const authenticate = require("../authMiddleware");
+
+router.get("/", authenticate, (req, res) => {
+  res.json({ message: `Welcome ${req.user.username}`, role: req.user.role });
+});
+
+module.exports = router;
+
+
+server.js
+const express = require("express");
+const bodyParser = require("body-parser");
+
+const app = express();
+app.use(bodyParser.json());
+
+const authRoutes = require("./routes/auth");
+const profileRoutes = require("./routes/profile");
+
+app.use("/auth", authRoutes);
+app.use("/profile", profileRoutes);
+
+app.listen(3000, () => {
+  console.log(" Server running on http://localhost:3000");
+});
+
+___________________________________________
+
+
+
 // PROJECT STRUCTURE:
 // bookstore-customer-app/
 // ├── backend/
