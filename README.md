@@ -308,7 +308,180 @@ spring.jpa.show-sql=true
 
 eureka.client.register-with-eureka=true
 eureka.client.fetch-registry=true
-eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/.....
+
+
+
+// --- ITEM SERVICE ---
+
+// File: item-service/src/main/java/com/synechron/service/ItemService.java
+package com.synechron.service;
+
+import com.synechron.entity.Item;
+import com.synechron.repository.ItemRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class ItemService {
+
+    @Autowired
+    private ItemRepository itemRepository;
+
+    public List<Item> getAllItems() {
+        return itemRepository.findAll();
+    }
+
+    public Optional<Item> getItemById(Long id) {
+        return itemRepository.findById(id);
+    }
+
+    public Item createItem(Item item) {
+        return itemRepository.save(item);
+    }
+
+    public boolean deleteItem(Long id) {
+        if (itemRepository.existsById(id)) {
+            itemRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+}
+
+// File: item-service/src/main/java/com/synechron/controller/ItemController.java
+package com.synechron.controller;
+
+import com.synechron.entity.Item;
+import com.synechron.service.ItemService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/item")
+public class ItemController {
+
+    @Autowired
+    private ItemService itemService;
+
+    @GetMapping
+    public List<Item> getAllItems() {
+        return itemService.getAllItems();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Item> getItemById(@PathVariable Long id) {
+        return itemService.getItemById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public ResponseEntity<Item> createItem(@RequestBody @Valid Item item) {
+        return ResponseEntity.ok(itemService.createItem(item));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteItem(@PathVariable Long id) {
+        if (itemService.deleteItem(id)) {
+            return ResponseEntity.ok("Item deleted successfully");
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
+
+
+// --- ORDER SERVICE ---
+
+// File: order-service/src/main/java/com/synechron/service/OrderService.java
+package com.synechron.service;
+
+import com.synechron.entity.Order;
+import com.synechron.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class OrderService {
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    public List<Order> getAllOrders() {
+        return orderRepository.findAll();
+    }
+
+    public Optional<Order> getOrderById(Long id) {
+        return orderRepository.findById(id);
+    }
+
+    public Order placeOrder(Order order) {
+        return orderRepository.save(order);
+    }
+
+    public boolean deleteOrder(Long id) {
+        if (orderRepository.existsById(id)) {
+            orderRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+}
+
+// File: order-service/src/main/java/com/synechron/controller/OrderController.java
+package com.synechron.controller;
+
+import com.synechron.entity.Order;
+import com.synechron.service.OrderService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/order")
+public class OrderController {
+
+    @Autowired
+    private OrderService orderService;
+
+    @GetMapping
+    public List<Order> getAllOrders() {
+        return orderService.getAllOrders();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
+        return orderService.getOrderById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public ResponseEntity<Order> placeOrder(@RequestBody @Valid Order order) {
+        return ResponseEntity.ok(orderService.placeOrder(order));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteOrder(@PathVariable Long id) {
+        if (orderService.deleteOrder(id)) {
+            return ResponseEntity.ok("Order deleted successfully");
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
 
 
 
