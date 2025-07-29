@@ -1,3 +1,307 @@
+✅ Spring Boot Microservices: Complete Step-by-Step Project Guide
+
+This document will walk you through creating a Spring Boot Microservices project with:
+
+🔹 ItemService
+
+🔹 OrderService
+
+🔹 Eureka Server
+
+🗃️ MySQL integration
+
+✅ REST APIs with validation
+
+📮 Postman testing support
+
+
+
+---
+
+✅ 1. Project Setup
+
+A. Create 3 Spring Boot Applications from Spring Initializr:
+
+Microservice	Artifact Name	Packaging	Dependencies
+
+Item Service	item-service	WAR	Spring Web, Spring Data JPA, MySQL Driver, Eureka Discovery Client
+Order Service	order-service	WAR	Spring Web, Spring Data JPA, MySQL Driver, Eureka Discovery Client
+Eureka Server	eureka-server	WAR	Eureka Server
+
+
+B. Import all projects into your IDE (IntelliJ/STS/Eclipse).
+
+
+---
+
+✅ 2. application.properties (Initial Setup)
+
+📁 eureka-server/src/main/resources/application.properties
+
+server.port=8761
+spring.application.name=eureka-server
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+
+📁 item-service/src/main/resources/application.properties
+
+server.port=8081
+spring.application.name=item-service
+
+📁 order-service/src/main/resources/application.properties
+
+server.port=8082
+spring.application.name=order-service
+
+Now you can build your basic entities and controllers.
+
+
+---
+
+✅ 3. Enable Eureka Support
+
+📁 eureka-server
+
+📄 EurekaServerApplication.java
+
+@SpringBootApplication
+@EnableEurekaServer
+public class EurekaServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaServerApplication.class, args);
+    }
+}
+
+📁 item-service and order-service
+
+📄 Main Class
+
+@SpringBootApplication
+@EnableEurekaClient
+public class ItemServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ItemServiceApplication.class, args);
+    }
+}
+
+(Repeat similarly for OrderService.)
+
+🔄 Update application.properties for Eureka
+
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+
+
+---
+
+✅ 4. Add MySQL Configuration
+
+Create databases itemdb and orderdb in MySQL.
+
+📁 item-service/src/main/resources/application.properties
+
+spring.datasource.url=jdbc:mysql://localhost:3306/itemdb
+spring.datasource.username=root
+spring.datasource.password=your_password
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+
+📁 order-service/src/main/resources/application.properties
+
+spring.datasource.url=jdbc:mysql://localhost:3306/orderdb
+spring.datasource.username=root
+spring.datasource.password=your_password
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+
+
+---
+
+✅ 5. Code for Item Service
+
+📁 com.synechron.itemservice.entity.Item.java
+
+@Entity
+public class Item {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, message = "Name must be at least 2 characters")
+    private String name;
+
+    @DecimalMin(value = "0.1", message = "Price must be greater than 0")
+    private double price;
+
+    // Getters and Setters
+}
+
+📁 com.synechron.itemservice.repository.ItemRepository.java
+
+@Repository
+public interface ItemRepository extends JpaRepository<Item, Long> {}
+
+📁 com.synechron.itemservice.controller.ItemController.java
+
+@RestController
+@RequestMapping("/item")
+public class ItemController {
+
+    public static final String ITEM_SERVICE_URL = "http://localhost:8081/item";
+
+    @Autowired
+    private ItemRepository itemRepository;
+
+    // POST - Add item
+    @PostMapping
+    public ResponseEntity<Item> addItem(@Valid @RequestBody Item item) {
+        return new ResponseEntity<>(itemRepository.save(item), HttpStatus.CREATED);
+    }
+
+    // GET - List all items
+    @GetMapping
+    public ResponseEntity<List<Item>> getItems() {
+        return ResponseEntity.ok(itemRepository.findAll());
+    }
+}
+
+
+---
+
+✅ 6. Code for Order Service
+
+📁 com.synechron.orderservice.entity.Order.java
+
+@Entity
+@Table(name = "orders")
+public class Order {
+
+    @Id
+    private java.sql.Date id; // Order ID as SQL Date
+
+    @NotBlank(message = "Customer name is required")
+    private String customerName;
+
+    @NotBlank(message = "Item name is required")
+    private String itemName;
+
+    @Min(value = 1, message = "Quantity must be at least 1")
+    private int quantity;
+
+    // Getters and Setters
+}
+
+📁 com.synechron.orderservice.repository.OrderRepository.java
+
+@Repository
+public interface OrderRepository extends JpaRepository<Order, java.sql.Date> {}
+
+📁 com.synechron.orderservice.controller.OrderController.java
+
+@RestController
+@RequestMapping("/order")
+public class OrderController {
+
+    public static final String ORDER_SERVICE_URL = "http://localhost:8082/order";
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    // POST - Create order
+    @PostMapping
+    public ResponseEntity<Order> createOrder(@Valid @RequestBody Order order) {
+        return new ResponseEntity<>(orderRepository.save(order), HttpStatus.CREATED);
+    }
+
+    // GET - List all orders
+    @GetMapping
+    public ResponseEntity<List<Order>> getAllOrders() {
+        return ResponseEntity.ok(orderRepository.findAll());
+    }
+}
+
+
+---
+
+✅ 7. Testing with Postman
+
+🔹 Get all items:
+
+GET http://localhost:8081/item
+
+🔹 Create item:
+
+POST http://localhost:8081/item
+Content-Type: application/json
+{
+  "name": "Pen",
+  "price": 12.99
+}
+
+🔹 Get all orders:
+
+GET http://localhost:8082/order
+
+🔹 Create order:
+
+POST http://localhost:8082/order
+Content-Type: application/json
+{
+  "id": "2025-07-29",
+  "customerName": "Ravi",
+  "itemName": "Pen",
+  "quantity": 3
+}
+
+
+---
+
+Let me know when you're ready for:
+
+📘 Swagger Integration
+
+🧩 Connecting Order to Item service via REST
+
+🐳 Docker + Docker Compose setup
+
+
+All set to build and test this now!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+____________________________________________________
 jwt-demo/
 ├── server.js
 ├── jwtUtils.js
