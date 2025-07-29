@@ -27,69 +27,67 @@ Microservice	Artifact Name	Packaging	Dependencies
 Item Service	item-service	WAR	Spring Web, Spring Data JPA, MySQL Driver, Eureka Discovery Client
 Order Service	order-service	WAR	Spring Web, Spring Data JPA, MySQL Driver, Eureka Discovery Client
 Eureka Server	eureka-server	WAR	Eureka Server
+----------
 
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+    <version>1.18.30</version> <!-- or latest stable -->
+    <scope>provided</scope>
+</dependency>
 
+  // ✅ STEP 1: Eureka Server
+// File: eureka-server/src/main/java/com/synechron/EurekaServerApplication.java
 
+package com.synechron;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
 
----
-
-✅ 7. Testing with Postman
-
-🔹 Get all items:
-
-GET http://localhost:8081/item
-
-🔹 Create item:
-
-POST http://localhost:8081/item
-Content-Type: application/json
-{
-  "name": "Pen",
-  "price": 12.99
+@SpringBootApplication
+@EnableEurekaServer
+public class EurekaServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaServerApplication.class, args);
+    }
 }
 
-🔹 Get all orders:
+// File: eureka-server/src/main/resources/application.properties
+spring.application.name=eureka-server
+server.port=8761
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
 
-GET http://localhost:8082/order
+// ✅ STEP 2: Item Service
 
-🔹 Create order:
+// File: item-service/src/main/java/com/synechron/ItemServiceApplication.java
+package com.synechron;
 
-POST http://localhost:8082/order
-Content-Type: application/json
-{
-  "id": "2025-07-29",
-  "customerName": "Ravi",
-  "itemName": "Pen",
-  "quantity": 3
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+public class ItemServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ItemServiceApplication.class, args);
+    }
 }
 
-
----
-
-Let me know when you're ready for:
-
-📘 Swagger Integration
-
-🧩 Connecting Order to Item service via REST
-
-🐳 Docker + Docker Compose setup
-
-
-All set to build and test this now!
-
-
-// === ITEM SERVICE ===
-
-// Item.java (Entity)
-package com.synechron.itemservice.entity;
+// File: item-service/src/main/java/com/synechron/entity/Item.java
+package com.synechron.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import lombok.*;
 
 @Entity
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class Item {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -97,51 +95,30 @@ public class Item {
     @NotBlank(message = "Item name is required")
     private String name;
 
-    @DecimalMin(value = "0.0", message = "Price must be greater than or equal to 0")
+    @Min(value = 1, message = "Price must be at least 1")
     private double price;
 
-    // Getters and Setters
+    @Min(value = 1, message = "Quantity must be at least 1")
+    private int quantity;
 }
 
-// ItemRepository.java
-package com.synechron.itemservice.repository;
+// File: item-service/src/main/java/com/synechron/repository/ItemRepository.java
+package com.synechron.repository;
 
-import com.synechron.itemservice.entity.Item;
+import com.synechron.entity.Item;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ItemRepository extends JpaRepository<Item, Long> {}
-
-// ItemService.java
-package com.synechron.itemservice.service;
-
-import com.synechron.itemservice.entity.Item;
-import com.synechron.itemservice.repository.ItemRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
-@Service
-public class ItemService {
-    @Autowired
-    private ItemRepository itemRepository;
-
-    public List<Item> getAllItems() {
-        return itemRepository.findAll();
-    }
-
-    public Item saveItem(Item item) {
-        return itemRepository.save(item);
-    }
+public interface ItemRepository extends JpaRepository<Item, Long> {
 }
 
-// ItemController.java
-package com.synechron.itemservice.controller;
+// File: item-service/src/main/java/com/synechron/controller/ItemController.java
+package com.synechron.controller;
 
-import com.synechron.itemservice.entity.Item;
-import com.synechron.itemservice.service.ItemService;
+import com.synechron.entity.Item;
+import com.synechron.repository.ItemRepository;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -150,65 +127,112 @@ import java.util.List;
 @RequestMapping("/item")
 public class ItemController {
 
-    private static final String ITEM_SERVICE_URL = "http://localhost:8081/item";
-
     @Autowired
-    private ItemService itemService;
+    private ItemRepository itemRepository;
 
     @GetMapping
     public List<Item> getAllItems() {
-        return itemService.getAllItems();
+        return itemRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Item> getItemById(@PathVariable Long id) {
+        return itemRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public Item createItem(@RequestBody @Valid Item item) {
-        return itemService.saveItem(item);
+    public ResponseEntity<Item> createItem(@RequestBody @Valid Item item) {
+        return ResponseEntity.ok(itemRepository.save(item));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteItem(@PathVariable Long id) {
+        if (itemRepository.existsById(id)) {
+            itemRepository.deleteById(id);
+            return ResponseEntity.ok("Item deleted successfully");
+        }
+        return ResponseEntity.notFound().build();
     }
 }
 
+// File: item-service/src/main/resources/application.properties
+spring.application.name=item-service
+server.port=8081
+
+spring.datasource.url=jdbc:mysql://localhost:3306/microservicedb
+spring.datasource.username=root
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=create
+spring.jpa.show-sql=true
+
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
 
 
-// === ORDER SERVICE ===
+// ✅ STEP 3: Order Service
 
-// Order.java (Entity)
-package com.synechron.orderservice.entity;
+// File: order-service/src/main/java/com/synechron/OrderServiceApplication.java
+package com.synechron;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
+public class OrderServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderServiceApplication.class, args);
+    }
+}
+
+// File: order-service/src/main/java/com/synechron/entity/Order.java
+package com.synechron.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import lombok.*;
 
 import java.sql.Date;
 
 @Entity
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class Order {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long orderId;
+    private Long id;
 
     @NotBlank(message = "Customer name is required")
     private String customerName;
 
-    @NotBlank(message = "Item name is required")
-    private String itemName;
-
-    private int quantity;
-
     private Date orderDate;
 
-    // Getters and Setters
+    @Min(value = 1, message = "Total amount must be at least 1")
+    private double totalAmount;
 }
 
-// OrderRepository.java
-package com.synechron.orderservice.repository;
+// File: order-service/src/main/java/com/synechron/repository/OrderRepository.java
+package com.synechron.repository;
 
-import com.synechron.orderservice.entity.Order;
+import com.synechron.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface OrderRepository extends JpaRepository<Order, Long> {}
+public interface OrderRepository extends JpaRepository<Order, Long> {
+}
 
-// Feign Client to call ItemService
-package com.synechron.orderservice.feign;
+// File: order-service/src/main/java/com/synechron/feign/ItemClient.java
+package com.synechron.feign;
 
-import com.synechron.orderservice.model.Item;
+import com.synechron.entity.Item;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -220,51 +244,16 @@ public interface ItemClient {
     List<Item> getAllItems();
 }
 
-// Item.java (model in order service)
-package com.synechron.orderservice.model;
+// File: order-service/src/main/java/com/synechron/controller/OrderController.java
+package com.synechron.controller;
 
-public class Item {
-    private Long id;
-    private String name;
-    private double price;
-
-    // Getters and Setters
-}
-
-// OrderService.java
-package com.synechron.orderservice.service;
-
-import com.synechron.orderservice.entity.Order;
-import com.synechron.orderservice.repository.OrderRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
-@Service
-public class OrderService {
-
-    @Autowired
-    private OrderRepository orderRepository;
-
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
-    }
-
-    public Order saveOrder(Order order) {
-        return orderRepository.save(order);
-    }
-}
-
-// OrderController.java
-package com.synechron.orderservice.controller;
-
-import com.synechron.orderservice.entity.Order;
-import com.synechron.orderservice.feign.ItemClient;
-import com.synechron.orderservice.model.Item;
-import com.synechron.orderservice.service.OrderService;
+import com.synechron.entity.Order;
+import com.synechron.repository.OrderRepository;
+import com.synechron.feign.ItemClient;
+import com.synechron.entity.Item;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -273,22 +262,36 @@ import java.util.List;
 @RequestMapping("/order")
 public class OrderController {
 
-    private static final String ORDER_SERVICE_URL = "http://localhost:8082/order";
-
     @Autowired
-    private OrderService orderService;
+    private OrderRepository orderRepository;
 
     @Autowired
     private ItemClient itemClient;
 
     @GetMapping
     public List<Order> getAllOrders() {
-        return orderService.getAllOrders();
+        return orderRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
+        return orderRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public Order createOrder(@RequestBody @Valid Order order) {
-        return orderService.saveOrder(order);
+    public ResponseEntity<Order> placeOrder(@RequestBody @Valid Order order) {
+        return ResponseEntity.ok(orderRepository.save(order));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteOrder(@PathVariable Long id) {
+        if (orderRepository.existsById(id)) {
+            orderRepository.deleteById(id);
+            return ResponseEntity.ok("Order deleted successfully");
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @GetMapping("/items")
@@ -296,6 +299,31 @@ public class OrderController {
         return itemClient.getAllItems();
     }
 }
+
+// File: order-service/src/main/resources/application.properties
+spring.application.name=order-service
+server.port=8082
+
+spring.datasource.url=jdbc:mysql://localhost:3306/microservicedb
+spring.datasource.username=root
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=create
+spring.jpa.show-sql=true
+
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+
+
+
+
+
+
+
+
+
 
 
 
