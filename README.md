@@ -229,30 +229,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 }
 
-// File: order-service/src/main/java/com/synechron/feign/ItemClient.java
-package com.synechron.feign;
 
-import com.synechron.entity.Item;
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-
-import java.util.List;
-
-@FeignClient(name = "item-service")
-public interface ItemClient {
-    @GetMapping("/item")
-    List<Item> getAllItems();
-}
 
 // File: order-service/src/main/java/com/synechron/controller/OrderController.java
 package com.synechron.controller;
 
 import com.synechron.entity.Order;
 import com.synechron.repository.OrderRepository;
-import com.synechron.feign.ItemClient;
-import com.synechron.entity.Item;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -298,7 +284,15 @@ public class OrderController {
     public List<Item> getItemsFromItemService() {
         return itemClient.getAllItems();
     }
+
+    // ✅ Embedded Feign Client
+    @FeignClient(name = "item-service")
+    interface ItemClient {
+        @GetMapping("/item")
+        List<Item> getAllItems();
+    }
 }
+
 
 // File: order-service/src/main/resources/application.properties
 spring.application.name=order-service
